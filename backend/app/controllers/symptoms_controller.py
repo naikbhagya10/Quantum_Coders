@@ -9,6 +9,18 @@ from app.utils.security import require_auth
 from app.services.gemini_ai import analyze_symptoms_triage
 
 symptoms_bp = Blueprint('symptoms_api', __name__)
+SUPPORTED_LANGUAGES = {'English', 'Kannada', 'Hindi'}
+
+def get_request_language():
+    json_data = request.get_json(silent=True) or {}
+    language = (
+        request.headers.get('X-Language')
+        or request.form.get('language')
+        or json_data.get('language')
+        or request.args.get('language')
+        or 'English'
+    )
+    return language if language in SUPPORTED_LANGUAGES else 'English'
 
 @symptoms_bp.route('/check', methods=['POST'])
 @require_auth
@@ -22,7 +34,8 @@ def evaluate_symptoms(user_id):
     if not symptoms:
         return jsonify({'message': 'Symptom description is required.'}), 400
 
-    result = analyze_symptoms_triage(symptoms, duration, severity, age)
+    language = get_request_language()
+    result = analyze_symptoms_triage(symptoms, duration, severity, age, language)
 
     record_id = str(uuid.uuid4())
     record = {

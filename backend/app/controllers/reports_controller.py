@@ -14,6 +14,16 @@ from app.services.gemini_ai import analyze_report_text
 
 reports_bp = Blueprint('reports_api', __name__)
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'bmp', 'webp'}
+SUPPORTED_LANGUAGES = {'English', 'Kannada', 'Hindi'}
+
+def get_request_language():
+    language = (
+        request.headers.get('X-Language')
+        or request.form.get('language')
+        or request.args.get('language')
+        or 'English'
+    )
+    return language if language in SUPPORTED_LANGUAGES else 'English'
 
 def is_allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -39,7 +49,8 @@ def upload_report(user_id):
 
         # OCR & AI Processing
         extracted_txt = process_document_ocr(file_path)
-        analysis_data = analyze_report_text(extracted_txt)
+        language = get_request_language()
+        analysis_data = analyze_report_text(extracted_txt, language)
 
         report_id = str(uuid.uuid4())
         record = {
@@ -85,7 +96,8 @@ def process_sample_report(user_id):
     Serum Creatinine         1.0         0.7 - 1.3           mg/dL    NORMAL
     """
 
-    analysis_data = analyze_report_text(sample_txt)
+    language = get_request_language()
+    analysis_data = analyze_report_text(sample_txt, language)
     report_id = str(uuid.uuid4())
     record = {
         'id': report_id,
@@ -109,6 +121,7 @@ def process_sample_report(user_id):
     }), 200
 
 
+@reports_bp.route('', methods=['GET'])
 @reports_bp.route('/', methods=['GET'])
 @require_auth
 def get_user_reports(user_id):

@@ -57,18 +57,18 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-2.5">
-            <Bell className="w-7 h-7 text-cyan-400" />
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-primary flex items-center gap-2.5">
+            <Bell className="w-7 h-7 text-cyan-500" />
             <span>Health Alerts & Reminder Notifications</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1">
+          <p className="text-xs sm:text-sm text-secondary mt-1">
             Real-time notifications for upcoming doctor visits, abnormal lab report flags, and dosage reminders.
           </p>
         </div>
 
         <button
           onClick={markAllRead}
-          className="px-4 py-2 rounded-xl glass-panel text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold flex items-center space-x-2 transition"
+          className="px-4 py-2 rounded-xl btn-secondary text-secondary hover:text-primary border border-base text-xs font-semibold flex items-center space-x-2 transition"
         >
           <Check className="w-4 h-4 text-emerald-400" />
           <span>Mark All as Read</span>
@@ -80,20 +80,20 @@ export default function NotificationsPage() {
         {notifications.map((notif) => (
           <div
             key={notif.id}
-            className={`glass-panel p-5 rounded-2xl border transition flex items-start space-x-4 ${
-              !notif.read ? 'border-cyan-500/40 bg-slate-900/80 shadow-lg shadow-cyan-500/5' : 'border-slate-800/80 opacity-80'
+            className={`surface-card p-5 rounded-2xl border transition flex items-start space-x-4 ${
+              !notif.read ? 'border-cyan-500/40 bg-[#EFF8FF]' : 'border-base opacity-90'
             }`}
           >
-            <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 shrink-0">
+            <div className="p-2.5 rounded-xl bg-[#EAF4FF] border border-[#D7E6F4] shrink-0">
               {getIcon(notif.type)}
             </div>
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
-                <h4 className="font-bold text-sm text-white">{notif.title}</h4>
-                <span className="text-[10px] text-slate-400 font-mono">{notif.time}</span>
+                <h4 className="font-bold text-sm text-primary">{notif.title}</h4>
+                <span className="text-[10px] text-secondary font-mono">{notif.time}</span>
               </div>
-              <p className="text-xs text-slate-300 mt-1 leading-relaxed">{notif.message}</p>
+              <p className="text-xs text-secondary mt-1 leading-relaxed">{notif.message}</p>
             </div>
           </div>
         ))}

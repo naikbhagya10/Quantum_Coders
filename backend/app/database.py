@@ -117,9 +117,9 @@ class MediClearDBManager:
             db_name = mongo_uri.split('/')[-1].split('?')[0] or 'mediclear_ai_db'
             self.db = client[db_name]
             self.using_mongo = True
-            print(f"✅ [MediClear DB] Connected to MongoDB at {mongo_uri}")
+            print(f"[MediClear DB] Connected to MongoDB at {mongo_uri}")
         except Exception as e:
-            print(f"ℹ️ [MediClear DB] MongoDB offline ({e}). Using local JSON store.")
+            print(f"[MediClear DB] MongoDB offline ({e}). Using local JSON store.")
             self.using_mongo = False
 
     def get_collection(self, collection_name):

@@ -12,15 +12,15 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-export default function NearbyMap({ facilities = [] }) {
-  const centerLat = facilities.length > 0 ? facilities[0].lat : 12.9716;
-  const centerLng = facilities.length > 0 ? facilities[0].lng : 77.5946;
+export default function NearbyMap({ facilities = [], currentLocation = null }) {
+  const centerLat = currentLocation?.lat ?? (facilities.length > 0 ? facilities[0].lat : 0);
+  const centerLng = currentLocation?.lng ?? (facilities.length > 0 ? facilities[0].lng : 0);
 
   return (
-    <div className="w-full h-[450px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl relative">
+    <div className="w-full h-[450px] rounded-2xl overflow-hidden border border-base shadow-soft relative bg-white">
       <MapContainer
         center={[centerLat, centerLng]}
-        zoom={13}
+        zoom={currentLocation ? 13 : facilities.length > 0 ? 13 : 2}
         scrollWheelZoom={false}
         className="w-full h-full z-10"
       >
@@ -41,7 +41,11 @@ export default function NearbyMap({ facilities = [] }) {
                   <span className="text-cyan-700 font-medium">{fac.distance} away</span>
                 </div>
                 <a
-                  href={`https://maps.google.com/?q=${fac.lat},${fac.lng}`}
+                  href={
+                    currentLocation
+                      ? `https://www.google.com/maps/dir/?api=1&origin=${currentLocation.lat},${currentLocation.lng}&destination=${fac.lat},${fac.lng}`
+                      : `https://maps.google.com/?q=${fac.lat},${fac.lng}`
+                  }
                   target="_blank"
                   rel="noreferrer"
                   className="mt-2 inline-block w-full text-center py-1 bg-cyan-600 text-white rounded text-xs font-semibold hover:bg-cyan-700 transition"

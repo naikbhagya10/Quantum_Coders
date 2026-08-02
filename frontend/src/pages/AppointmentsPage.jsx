@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { scheduleAppointment, getAppointments, cancelAppointment } from '../services/api';
 import { useNotification } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Calendar, Clock, User, Plus, CheckCircle2, XCircle, Bell, MapPin } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -8,7 +10,11 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [dayBeforeReminder, setDayBeforeReminder] = useState(null);
+  const [tomorrowReminderNotified, setTomorrowReminderNotified] = useState(false);
   const { addNotification } = useNotification();
+  const { logout } = useAuth();
+  const { t } = useLanguage();
 
   const [formData, setFormData] = useState({
     doctor_name: 'Dr. Sarah Jenkins',
@@ -27,7 +33,9 @@ export default function AppointmentsPage() {
   const loadAppointments = async () => {
     try {
       const res = await getAppointments();
-      setAppointments(res.data.appointments || []);
+      const appointmentsData = res.data.appointments || [];
+      setAppointments(appointmentsData);
+      scheduleTomorrowReminder(appointmentsData);
     } catch (err) {
       console.error("Error loading appointments:", err);
     }
@@ -38,19 +46,54 @@ export default function AppointmentsPage() {
     setLoading(true);
     try {
       await scheduleAppointment(formData);
-      addNotification(`Appointment booked with ${formData.doctor_name}! Reminder notification active.`, 'success');
+      window.dispatchEvent(new CustomEvent('mediclear_history_updated'));
+      addNotification(`Appointment saved for ${formData.appointment_date} at ${formData.appointment_time}. You will get a reminder one day before.`, 'success');
       setShowModal(false);
       loadAppointments();
     } catch (err) {
-      addNotification('Error scheduling appointment.', 'danger');
+      if (err.response?.status === 401) {
+        addNotification('Session expired. Please log in again to save the appointment.', 'danger');
+        logout();
+        return;
+      }
+      const msg = err.response?.data?.message || 'Error scheduling appointment.';
+      addNotification(msg, 'danger');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const scheduleTomorrowReminder = (appointmentsList) => {
+    if (!appointmentsList?.length) {
+      setTomorrowReminderNotified(false);
+      return;
+    }
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowDateString = tomorrow.toISOString().split('T')[0];
+
+    const tomorrowAppointment = appointmentsList.find((app) => app.appointment_date === tomorrowDateString && app.status === 'Upcoming');
+
+    if (tomorrowAppointment) {
+      setDayBeforeReminder(tomorrowAppointment);
+      if (!tomorrowReminderNotified) {
+        addNotification(
+          `Reminder: You have an appointment with ${tomorrowAppointment.doctor_name} tomorrow at ${tomorrowAppointment.appointment_time}.`,
+          'info'
+        );
+        setTomorrowReminderNotified(true);
+      }
+    } else {
+      setDayBeforeReminder(null);
+      setTomorrowReminderNotified(false);
     }
   };
 
   const handleCancel = async (id) => {
     try {
       await cancelAppointment(id);
+      window.dispatchEvent(new CustomEvent('mediclear_history_updated'));
       addNotification('Appointment cancelled.', 'info');
       loadAppointments();
     } catch (err) {
@@ -63,52 +106,68 @@ export default function AppointmentsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-2.5">
-            <Calendar className="w-7 h-7 text-indigo-400" />
-            <span>Doctor Appointments & Reminders</span>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-primary flex items-center gap-2.5">
+            <Calendar className="w-7 h-7 text-emerald-500" />
+            <span>{t('appointmentHeader')}</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1">
-            Schedule specialist consultations and receive reminder alerts before your appointment time.
+          <p className="text-xs sm:text-sm text-secondary mt-1">
+            {t('appointmentDescription')}
           </p>
         </div>
 
         <button
           onClick={() => setShowModal(true)}
-          className="px-5 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 flex items-center space-x-2 transition hover:scale-105"
+          className="px-5 py-3 rounded-xl btn-primary text-xs font-bold flex items-center space-x-2 transition hover:scale-105"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
-          <span>Book Doctor Appointment</span>
+          <span>Save Appointment</span>
         </button>
       </div>
+
+      {/* Appointment Reminder */}
+      {dayBeforeReminder && (
+        <div className="surface-card p-5 rounded-3xl border border-emerald-200 bg-emerald-50 text-primary flex items-center gap-4">
+          <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-600">
+            <Bell className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-emerald-600 font-semibold">Appointment Reminder</p>
+            <p className="text-sm font-semibold text-primary">
+              You have an appointment tomorrow with {dayBeforeReminder.doctor_name} at {dayBeforeReminder.appointment_time}.
+            </p>
+            <p className="text-xs text-secondary mt-1">{dayBeforeReminder.facility_name} · {dayBeforeReminder.specialty}</p>
+          </div>
+        </div>
+      )}
 
       {/* Appointment List */}
       <div className="space-y-4">
         {appointments.length === 0 ? (
-          <div className="glass-panel p-12 rounded-3xl text-center border border-slate-800 space-y-3">
-            <Calendar className="w-12 h-12 text-slate-600 mx-auto mb-2" />
-            <h3 className="text-base font-bold text-white">No Appointments Scheduled</h3>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              Schedule your doctor visits to receive automated reminder alerts before your consultation time.
+          <div className="surface-card p-12 rounded-3xl text-center border border-base bg-white/90 space-y-3">
+            <Calendar className="w-12 h-12 text-secondary mx-auto mb-2" />
+            <h3 className="text-base font-bold text-primary">{t('noAppointments')}</h3>
+            <p className="text-xs text-secondary max-w-sm mx-auto">
+              {t('scheduleVisit')}
             </p>
             <button
               onClick={() => setShowModal(true)}
-              className="mt-2 px-4 py-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-semibold hover:bg-cyan-500/30 transition"
+              className="mt-2 px-4 py-2 rounded-xl btn-secondary text-xs font-semibold transition"
             >
-              + Schedule First Appointment
+              {t('scheduleFirstAppointment')}
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {appointments.map((app) => (
-              <div key={app.id} className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4 glass-panel-hover">
+              <div key={app.id} className="surface-card p-6 rounded-3xl border border-base space-y-4 hover:shadow-soft transition">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 border border-indigo-200 text-indigo-600 flex items-center justify-center shrink-0">
                       <User className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-sm text-white">{app.doctor_name}</h4>
-                      <p className="text-xs text-cyan-400 font-medium">{app.specialty}</p>
+                      <h4 className="font-bold text-sm text-primary">{app.doctor_name}</h4>
+                      <p className="text-xs text-secondary font-medium">{app.specialty}</p>
                     </div>
                   </div>
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
@@ -118,23 +177,23 @@ export default function AppointmentsPage() {
                   </span>
                 </div>
 
-                <div className="space-y-2 text-xs text-slate-300 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800/80">
-                  <div className="flex items-center space-x-2 text-emerald-400 font-semibold">
+                <div className="space-y-2 text-xs text-secondary bg-[#F7FAFC] p-3.5 rounded-2xl border border-base">
+                  <div className="flex items-center space-x-2 text-emerald-600 font-semibold">
                     <Clock className="w-4 h-4" />
                     <span>{app.appointment_date} at {app.appointment_time}</span>
                   </div>
-                  <div className="flex items-center space-x-2 text-slate-400">
+                  <div className="flex items-center space-x-2 text-secondary">
                     <MapPin className="w-4 h-4 shrink-0" />
                     <span>{app.facility_name}</span>
                   </div>
-                  <p className="text-slate-400 pt-1 border-t border-slate-800">
-                    <strong className="text-slate-300">Reason:</strong> {app.reason}
+                  <p className="text-secondary pt-1 border-t border-base">
+                    <strong className="text-primary">Reason:</strong> {app.reason}
                   </p>
                 </div>
 
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11px] text-slate-500 flex items-center gap-1">
-                    <Bell className="w-3.5 h-3.5 text-cyan-400" /> Reminder set 1 hour before
+                  <span className="text-[11px] text-secondary flex items-center gap-1">
+                    <Bell className="w-3.5 h-3.5 text-cyan-400" /> {t('remindActiveMsg')}
                   </span>
                   {app.status === 'Upcoming' && (
                     <button
@@ -153,80 +212,80 @@ export default function AppointmentsPage() {
 
       {/* Booking Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 max-w-md w-full space-y-4 shadow-2xl relative"
+            className="surface-card p-6 sm:p-8 rounded-3xl border border-base max-w-md w-full space-y-4 shadow-soft relative"
           >
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-lg font-bold text-white">Book Doctor Visit</h3>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white">✕</button>
+            <div className="flex items-center justify-between border-b border-base pb-3">
+              <h3 className="text-lg font-bold text-primary">Save Appointment</h3>
+              <button onClick={() => setShowModal(false)} className="text-secondary hover:text-primary">✕</button>
             </div>
 
             <form onSubmit={handleScheduleSubmit} className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Doctor Name</label>
+                <label className="block text-secondary font-semibold mb-1">{t('doctorName')}</label>
                 <input
                   type="text"
                   value={formData.doctor_name}
                   onChange={(e) => setFormData({ ...formData, doctor_name: e.target.value })}
-                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none"
+                  className="w-full p-2.5 rounded-xl input-field text-primary text-xs focus:outline-none"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Specialty</label>
+                  <label className="block text-secondary font-semibold mb-1">{t('specialty')}</label>
                   <input
                     type="text"
                     value={formData.specialty}
                     onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
-                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none"
+                    className="w-full p-2.5 rounded-xl input-field text-primary text-xs focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Facility Name</label>
+                  <label className="block text-secondary font-semibold mb-1">{t('facilityName')}</label>
                   <input
                     type="text"
                     value={formData.facility_name}
                     onChange={(e) => setFormData({ ...formData, facility_name: e.target.value })}
-                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none"
+                    className="w-full p-2.5 rounded-xl input-field text-primary text-xs focus:outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Date</label>
+                  <label className="block text-secondary font-semibold mb-1">{t('appointmentDate')}</label>
                   <input
                     type="date"
                     value={formData.appointment_date}
                     onChange={(e) => setFormData({ ...formData, appointment_date: e.target.value })}
-                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none"
+                    className="w-full p-2.5 rounded-xl input-field text-primary text-xs focus:outline-none"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Time</label>
+                  <label className="block text-secondary font-semibold mb-1">{t('appointmentTime')}</label>
                   <input
                     type="text"
                     value={formData.appointment_time}
                     onChange={(e) => setFormData({ ...formData, appointment_time: e.target.value })}
-                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none"
+                    className="w-full p-2.5 rounded-xl input-field text-primary text-xs focus:outline-none"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Reason for Visit</label>
+                <label className="block text-secondary font-semibold mb-1">{t('reasonForVisit')}</label>
                 <input
                   type="text"
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                  className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none"
+                  className="w-full p-2.5 rounded-xl input-field text-primary text-xs focus:outline-none"
                 />
               </div>
 
@@ -234,16 +293,16 @@ export default function AppointmentsPage() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-xl glass-panel text-slate-300 font-semibold text-xs"
+                  className="px-4 py-2 rounded-xl btn-secondary text-xs font-semibold"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 font-bold text-xs"
+                  className="px-5 py-2.5 rounded-xl btn-primary text-xs font-bold"
                 >
-                  Confirm Appointment
+                  {loading ? 'Saving...' : 'Save Appointment'}
                 </button>
               </div>
             </form>

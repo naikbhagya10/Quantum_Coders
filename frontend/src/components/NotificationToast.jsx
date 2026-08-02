@@ -21,10 +21,10 @@ export default function NotificationToast() {
 
   const getBorderColor = (type) => {
     switch (type) {
-      case 'success': return 'border-emerald-500/40 bg-emerald-950/80';
-      case 'warning': return 'border-amber-500/40 bg-amber-950/80';
-      case 'danger': return 'border-rose-500/40 bg-rose-950/80';
-      default: return 'border-cyan-500/40 bg-slate-900/90';
+      case 'success': return 'border-emerald-200 bg-emerald-50';
+      case 'warning': return 'border-amber-200 bg-amber-50';
+      case 'danger': return 'border-rose-200 bg-rose-50';
+      default: return 'border-cyan-200 bg-cyan-50';
     }
   };
 
@@ -41,12 +41,12 @@ export default function NotificationToast() {
           >
             <div className="flex-shrink-0 mt-0.5 mr-3">{getIcon(toast.type)}</div>
             <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-semibold text-slate-100">{toast.title}</h4>
-              <p className="text-xs text-slate-300 mt-0.5">{toast.message}</p>
+              <h4 className="text-sm font-semibold text-primary">{toast.title}</h4>
+              <p className="text-xs text-secondary mt-0.5">{toast.message}</p>
             </div>
             <button
               onClick={() => removeNotification(toast.id)}
-              className="ml-3 flex-shrink-0 text-slate-400 hover:text-white transition-colors"
+              className="ml-3 flex-shrink-0 text-secondary hover:text-primary transition-colors"
             >
               <X className="w-4 h-4" />
             </button>

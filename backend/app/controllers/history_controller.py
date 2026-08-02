@@ -7,6 +7,7 @@ from app.utils.security import require_auth
 
 history_bp = Blueprint('history_api', __name__)
 
+@history_bp.route('', methods=['GET'])
 @history_bp.route('/', methods=['GET'])
 @require_auth
 def get_patient_history(user_id):
@@ -15,10 +16,10 @@ def get_patient_history(user_id):
     rx_col = db_service.get_collection('prescriptions')
     appointments_col = db_service.get_collection('appointments')
 
-    reports = reports_col.find({'user_id': user_id})
-    symptoms = symptoms_col.find({'user_id': user_id})
-    prescriptions = rx_col.find({'user_id': user_id})
-    appointments = appointments_col.find({'user_id': user_id})
+    reports = list(reports_col.find({'user_id': user_id}))
+    symptoms = list(symptoms_col.find({'user_id': user_id}))
+    prescriptions = list(rx_col.find({'user_id': user_id}))
+    appointments = list(appointments_col.find({'user_id': user_id}))
 
     biomarker_trends = [
         {"date": "2026-03-10", "blood_sugar": 148, "hemoglobin": 9.8, "cholesterol": 242, "systolic_bp": 140},

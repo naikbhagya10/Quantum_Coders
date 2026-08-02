@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
+import { useLanguage } from '../context/LanguageContext';
 import { loginUser } from '../services/api';
 import { Activity, Mail, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const { addNotification } = useNotification();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -39,47 +41,47 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12">
+    <div className="flex justify-center px-4 py-6 bg-base">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-md glass-panel p-8 rounded-3xl border border-slate-800 shadow-2xl relative overflow-hidden"
+        className="w-full max-w-md surface-card p-6 rounded-3xl border border-base shadow-soft relative overflow-hidden"
       >
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-cyan-500/20">
-            <Activity className="w-7 h-7 text-slate-950 stroke-[2.5]" />
+        <div className="text-center mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-[#E6F1F8] border border-[#D1E4EE] flex items-center justify-center mx-auto mb-3">
+            <Activity className="w-7 h-7 text-[#2E6F95] stroke-[2.5]" />
           </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Patient Portal Login</h2>
-          <p className="text-xs text-slate-400 mt-1">Access your simplified medical reports and history</p>
+          <h2 className="text-2xl font-bold text-primary tracking-tight">{t('patientPortalLogin')}</h2>
+          <p className="text-xs text-secondary mt-1">{t('loginDescription')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">Email Address</label>
+            <label className="block text-xs font-semibold text-secondary mb-1.5">{t('emailAddress')}</label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+              <Mail className="w-4 h-4 text-secondary absolute left-3.5 top-3" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="patient@example.com"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl input-field placeholder-secondary text-primary text-sm focus:outline-none focus:ring-2 focus:ring-secondary transition"
                 required
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">Password</label>
+            <label className="block text-xs font-semibold text-secondary mb-1.5">{t('password')}</label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+              <Lock className="w-4 h-4 text-secondary absolute left-3.5 top-3" />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl input-field placeholder-secondary text-primary text-sm focus:outline-none focus:ring-2 focus:ring-secondary transition"
                 required
               />
             </div>
@@ -88,28 +90,28 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-sm shadow-lg shadow-cyan-500/20 flex items-center justify-center space-x-2 transition-all hover:scale-[1.02] disabled:opacity-50"
+            className="w-full mt-2 py-3 px-4 rounded-xl btn-primary flex items-center justify-center space-x-2 transition disabled:opacity-50"
           >
             {loading ? (
-              <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-5 h-5 border-2 border-secondary/20 border-t-transparent rounded-full animate-spin"></div>
             ) : (
               <>
-                <span>Sign In to Dashboard</span>
+                <span>{t('signInDashboard')}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
         </form>
 
-        <div className="mt-6 text-center text-xs text-slate-400">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-cyan-400 font-semibold hover:underline">
-            Register for free
+        <div className="mt-4 text-center text-xs text-secondary">
+          {t('noAccount')}{' '}
+          <Link to="/register" className="text-primary font-semibold hover:text-secondary hover:underline">
+            {t('registerFree')}
           </Link>
         </div>
 
-        <div className="mt-8 pt-4 border-t border-slate-800/80 flex items-center justify-center space-x-2 text-[11px] text-slate-500">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+        <div className="mt-5 pt-3 border-t border-base flex items-center justify-center space-x-2 text-[11px] text-secondary">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
           <span>256-Bit Encrypted Secure Health Session</span>
         </div>
       </motion.div>

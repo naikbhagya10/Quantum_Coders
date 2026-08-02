@@ -9,7 +9,7 @@ from app.utils.security import require_auth
 
 appointments_bp = Blueprint('appointments_api', __name__)
 
-@appointments_bp.route('/', methods=['POST'])
+@appointments_bp.route('', methods=['POST'])
 @require_auth
 def create_appointment(user_id):
     data = request.get_json() or {}
@@ -49,7 +49,7 @@ def create_appointment(user_id):
     }), 201
 
 
-@appointments_bp.route('/', methods=['GET'])
+@appointments_bp.route('', methods=['GET'])
 @require_auth
 def list_appointments(user_id):
     col = db_service.get_collection('appointments')

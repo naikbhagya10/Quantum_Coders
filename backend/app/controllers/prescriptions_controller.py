@@ -10,9 +10,21 @@ from app.config import MediClearConfig
 from app.database import db_service
 from app.utils.security import require_auth
 from app.services.ocr_engine import process_document_ocr
-from app.services.gemini_ai import analyze_prescription_pharmacology
+from app.services.gemini_ai import analyze_prescription_pharmacology, looks_like_prescription_text
 
 prescriptions_bp = Blueprint('prescriptions_api', __name__)
+SUPPORTED_LANGUAGES = {'English', 'Kannada', 'Hindi'}
+
+def get_request_language():
+    json_data = request.get_json(silent=True) or {}
+    language = (
+        request.headers.get('X-Language')
+        or request.form.get('language')
+        or json_data.get('language')
+        or request.args.get('language')
+        or 'English'
+    )
+    return language if language in SUPPORTED_LANGUAGES else 'English'
 
 @prescriptions_bp.route('/analyze', methods=['POST'])
 @require_auth
@@ -33,9 +45,19 @@ def process_prescription(user_id):
         rx_text = data.get('prescription_text', '').strip()
 
     if not rx_text:
-        rx_text = "Metformin 500mg twice daily after meals, Telmisartan 40mg once daily morning."
+        return jsonify({
+            'message': 'Please provide a prescription text or upload a valid medicine prescription file.',
+            'invalid_input': True
+        }), 400
 
-    analysis_result = analyze_prescription_pharmacology(rx_text)
+    if not looks_like_prescription_text(rx_text):
+        return jsonify({
+            'message': 'Prescribed medication text was not detected. Enter a medicine name, dosage, frequency, or timing.',
+            'invalid_input': True
+        }), 400
+
+    language = get_request_language()
+    analysis_result = analyze_prescription_pharmacology(rx_text, language)
 
     rx_id = str(uuid.uuid4())
     record = {
@@ -58,6 +80,7 @@ def process_prescription(user_id):
     }), 200
 
 
+@prescriptions_bp.route('', methods=['GET'])
 @prescriptions_bp.route('/', methods=['GET'])
 @require_auth
 def get_user_prescriptions(user_id):

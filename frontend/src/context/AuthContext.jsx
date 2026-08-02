@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { getCurrentUser } from '../services/api';
+import api from '../services/api';
 
 const AuthContext = createContext();
 
@@ -7,6 +8,12 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('mediclear_token') || null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (token) {
+      api.defaults.headers.common.Authorization = `Bearer ${token}`;
+    }
+  }, [token]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -26,12 +33,14 @@ export const AuthProvider = ({ children }) => {
 
   const login = (userData, userToken) => {
     localStorage.setItem('mediclear_token', userToken);
+    api.defaults.headers.common.Authorization = `Bearer ${userToken}`;
     setToken(userToken);
     setUser(userData);
   };
 
   const logout = () => {
     localStorage.removeItem('mediclear_token');
+    delete api.defaults.headers.common.Authorization;
     setToken(null);
     setUser(null);
   };
