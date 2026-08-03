@@ -6,6 +6,66 @@ import { useLanguage } from '../context/LanguageContext';
 import { Calendar, Clock, User, Plus, CheckCircle2, XCircle, Bell, MapPin } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+const BASE_DASHBOARD_HISTORY_KEY = 'mediclear_dashboard_history';
+
+const getScopedStorageKey = (baseKey) => {
+  try {
+    const currentUser = JSON.parse(localStorage.getItem('mediclear_session_user') || '{}');
+    const userIdentifier = currentUser.email || currentUser.id || 'guest';
+    return `${baseKey}_${userIdentifier}`;
+  } catch (error) {
+    return `${baseKey}_guest`;
+  }
+};
+
+const syncDashboardAppointmentHistory = (appointmentPayload, mode = 'add') => {
+  try {
+    const key = getScopedStorageKey(BASE_DASHBOARD_HISTORY_KEY);
+    const raw = localStorage.getItem(key);
+    const storedHistory = raw ? JSON.parse(raw) : {
+      reports: [],
+      symptoms: [],
+      prescriptions: [],
+      appointments: [],
+      biomarker_trends: []
+    };
+
+    const existingAppointments = Array.isArray(storedHistory.appointments) ? storedHistory.appointments : [];
+
+    if (mode === 'add') {
+      const appointmentRecord = {
+        id: appointmentPayload.id || `appointment-${Date.now()}`,
+        doctor_name: appointmentPayload.doctor_name,
+        specialty: appointmentPayload.specialty,
+        facility_name: appointmentPayload.facility_name,
+        appointment_date: appointmentPayload.appointment_date,
+        appointment_time: appointmentPayload.appointment_time,
+        reason: appointmentPayload.reason,
+        status: 'Upcoming',
+        reminder_minutes_before: appointmentPayload.reminder_minutes_before,
+        created_at: new Date().toISOString()
+      };
+
+      const dashboardHistory = {
+        ...storedHistory,
+        appointments: [appointmentRecord, ...existingAppointments]
+      };
+
+      localStorage.setItem(key, JSON.stringify(dashboardHistory));
+      return;
+    }
+
+    const dashboardHistory = {
+      ...storedHistory,
+      appointments: existingAppointments.filter((appointment) => appointment.id !== appointmentPayload.id)
+    };
+
+    localStorage.setItem(key, JSON.stringify(dashboardHistory));
+  } catch (error) {
+    console.error('Error syncing appointment dashboard history:', error);
+  }
+};
+
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -45,7 +105,14 @@ export default function AppointmentsPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await scheduleAppointment(formData);
+      const res = await scheduleAppointment(formData);
+      const createdAppointment = res.data?.appointment || {
+        id: `appointment-${Date.now()}`,
+        ...formData,
+        status: 'Upcoming'
+      };
+
+      syncDashboardAppointmentHistory(createdAppointment, 'add');
       window.dispatchEvent(new CustomEvent('mediclear_history_updated'));
       addNotification(`Appointment saved for ${formData.appointment_date} at ${formData.appointment_time}. You will get a reminder one day before.`, 'success');
       setShowModal(false);
@@ -93,6 +160,7 @@ export default function AppointmentsPage() {
   const handleCancel = async (id) => {
     try {
       await cancelAppointment(id);
+      syncDashboardAppointmentHistory({ id }, 'remove');
       window.dispatchEvent(new CustomEvent('mediclear_history_updated'));
       addNotification('Appointment cancelled.', 'info');
       loadAppointments();

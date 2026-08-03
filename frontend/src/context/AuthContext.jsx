@@ -33,6 +33,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = (userData, userToken) => {
     localStorage.setItem('mediclear_token', userToken);
+    localStorage.setItem('mediclear_session_user', JSON.stringify(userData));
     api.defaults.headers.common.Authorization = `Bearer ${userToken}`;
     setToken(userToken);
     setUser(userData);
@@ -40,6 +41,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('mediclear_token');
+    localStorage.removeItem('mediclear_session_user');
     delete api.defaults.headers.common.Authorization;
     setToken(null);
     setUser(null);

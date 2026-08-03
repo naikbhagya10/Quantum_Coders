@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { checkSymptoms } from '../services/api';
 import { useNotification } from '../context/NotificationContext';
-import { 
+import {
   Stethoscope, 
   AlertTriangle, 
   ShieldAlert, 
@@ -14,6 +14,52 @@ import {
   Info
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+const BASE_DASHBOARD_HISTORY_KEY = 'mediclear_dashboard_history';
+
+const getScopedStorageKey = (baseKey) => {
+  try {
+    const currentUser = JSON.parse(localStorage.getItem('mediclear_session_user') || '{}');
+    const userIdentifier = currentUser.email || currentUser.id || 'guest';
+    return `${baseKey}_${userIdentifier}`;
+  } catch (error) {
+    return `${baseKey}_guest`;
+  }
+};
+
+const syncDashboardSymptomHistory = (symptomPayload) => {
+  try {
+    const key = getScopedStorageKey(BASE_DASHBOARD_HISTORY_KEY);
+    const raw = localStorage.getItem(key);
+    const storedHistory = raw ? JSON.parse(raw) : {
+      reports: [],
+      symptoms: [],
+      prescriptions: [],
+      appointments: [],
+      biomarker_trends: []
+    };
+
+    const dashboardHistory = {
+      ...storedHistory,
+      symptoms: [
+        {
+          id: `symptom-${Date.now()}`,
+          symptoms: symptomPayload.symptoms,
+          severity_level: symptomPayload.severity,
+          duration: symptomPayload.duration,
+          created_at: new Date().toISOString(),
+          user_age: symptomPayload.age,
+          ...symptomPayload.result
+        },
+        ...(storedHistory.symptoms || [])
+      ]
+    };
+
+    localStorage.setItem(key, JSON.stringify(dashboardHistory));
+  } catch (error) {
+    console.error('Error syncing symptom dashboard history:', error);
+  }
+};
 
 export default function SymptomCheckerPage() {
   const [symptomsInput, setSymptomsInput] = useState('');
@@ -50,6 +96,13 @@ export default function SymptomCheckerPage() {
         age
       });
       setResult(res.data.result);
+      syncDashboardSymptomHistory({
+        symptoms: symptomsInput,
+        duration,
+        severity,
+        age,
+        result: res.data.result
+      });
       window.dispatchEvent(new CustomEvent('mediclear_history_updated'));
       addNotification('Symptom triage & assessment completed.', 'success');
     } catch (err) {

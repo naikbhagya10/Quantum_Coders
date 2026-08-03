@@ -5,11 +5,21 @@ import { History, FileText, Stethoscope, Pill, Calendar, TrendingUp, Printer } f
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 import { motion } from 'framer-motion';
 
-const REPORT_STORAGE_KEY = 'mediclear_report_history';
+const BASE_REPORT_STORAGE_KEY = 'mediclear_report_history';
+
+const getScopedStorageKey = (baseKey) => {
+  try {
+    const currentUser = JSON.parse(localStorage.getItem('mediclear_session_user') || '{}');
+    const userIdentifier = currentUser.email || currentUser.id || 'guest';
+    return `${baseKey}_${userIdentifier}`;
+  } catch (error) {
+    return `${baseKey}_guest`;
+  }
+};
 
 const readStoredReports = () => {
   try {
-    const raw = localStorage.getItem(REPORT_STORAGE_KEY);
+    const raw = localStorage.getItem(getScopedStorageKey(BASE_REPORT_STORAGE_KEY));
     return raw ? JSON.parse(raw) : [];
   } catch (error) {
     console.error('Error reading stored reports:', error);
@@ -68,7 +78,7 @@ export default function MedicalHistoryPage() {
           appointments: res.data.appointments || [],
           biomarker_trends: res.data.biomarker_trends || []
         });
-        localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(mergedReports));
+        localStorage.setItem(getScopedStorageKey(BASE_REPORT_STORAGE_KEY), JSON.stringify(mergedReports));
       } else {
         const reportsRes = await getUserReports();
         const mergedReports = mergeReports(reportsRes.data.reports || [], storedReports);
@@ -79,7 +89,7 @@ export default function MedicalHistoryPage() {
           prescriptions: prevData.prescriptions || [],
           appointments: prevData.appointments || []
         }));
-        localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(mergedReports));
+        localStorage.setItem(getScopedStorageKey(BASE_REPORT_STORAGE_KEY), JSON.stringify(mergedReports));
       }
     } catch (err) {
       console.error("Error fetching medical history:", err);
@@ -93,7 +103,7 @@ export default function MedicalHistoryPage() {
           prescriptions: prevData.prescriptions || [],
           appointments: prevData.appointments || []
         }));
-        localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(mergedReports));
+        localStorage.setItem(getScopedStorageKey(BASE_REPORT_STORAGE_KEY), JSON.stringify(mergedReports));
       } catch (reportsErr) {
         console.error("Error fetching reports fallback:", reportsErr);
         setHistoryData((prevData) => ({

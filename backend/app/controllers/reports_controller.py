@@ -2,6 +2,7 @@
 MediClear AI - Reports Controller Blueprint
 """
 import os
+import re
 import uuid
 import datetime
 from flask import Blueprint, request, jsonify
@@ -28,6 +29,41 @@ def get_request_language():
 def is_allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
+def looks_like_medical_report(extracted_text: str) -> bool:
+    text = (extracted_text or '').lower()
+    if not text.strip():
+        return False
+
+    medical_markers = [
+        'hemoglobin', 'hba1c', 'cholesterol', 'glucose', 'creatinine', 'platelet',
+        'cbc', 'complete blood count', 'metabolic panel', 'thyroid', 'ldl', 'hdl',
+        'wbc', 'rbc', 'fasting', 'urine', 'serum', 'laboratory', 'report',
+        'reference range', 'patient name', 'test parameter', 'normal', 'abnormal'
+    ]
+    marker_hits = sum(1 for marker in medical_markers if marker in text)
+
+    lab_unit_patterns = [
+        r'\b\d+(?:\.\d+)?\s*(?:mg/dl|g/dl|mmol/l|k/mcl|mcg/ml|iu/l|ng/ml|%|mmhg)\b',
+        r'\b(?:low|high|normal|borderline)\b'
+    ]
+    lab_signal_hits = sum(1 for pattern in lab_unit_patterns if re.search(pattern, text, flags=re.IGNORECASE))
+
+    resume_markers = [
+        'experience', 'education', 'skills', 'company', 'project', 'resume',
+        'objective', 'employment', 'qualification', 'contact info'
+    ]
+    resume_hits = sum(1 for marker in resume_markers if marker in text)
+
+    if marker_hits >= 2 or (marker_hits >= 1 and lab_signal_hits >= 1):
+        return True
+
+    if resume_hits >= 2 and marker_hits == 0:
+        return False
+
+    return False
+
+
 @reports_bp.route('/upload', methods=['POST'])
 @require_auth
 def upload_report(user_id):
@@ -49,6 +85,11 @@ def upload_report(user_id):
 
         # OCR & AI Processing
         extracted_txt = process_document_ocr(file_path)
+        if not looks_like_medical_report(extracted_txt):
+            return jsonify({
+                'message': 'This file does not appear to be a medical report. Please upload a medical lab report, blood test, urine panel, or other clinical diagnostic report.'
+            }), 400
+
         language = get_request_language()
         analysis_data = analyze_report_text(extracted_txt, language)
 

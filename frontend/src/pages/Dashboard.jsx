@@ -18,18 +18,31 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const DASHBOARD_HISTORY_KEY = 'mediclear_dashboard_history';
+const BASE_DASHBOARD_HISTORY_KEY = 'mediclear_dashboard_history';
+const BASE_REPORT_HISTORY_KEY = 'mediclear_report_history';
+
+const getScopedStorageKey = (baseKey) => {
+  try {
+    const currentUser = JSON.parse(localStorage.getItem('mediclear_session_user') || '{}');
+    const userIdentifier = currentUser.email || currentUser.id || 'guest';
+    return `${baseKey}_${userIdentifier}`;
+  } catch (error) {
+    return `${baseKey}_guest`;
+  }
+};
 
 const readStoredDashboardHistory = () => {
   try {
-    const raw = localStorage.getItem(DASHBOARD_HISTORY_KEY);
+    const dashboardKey = getScopedStorageKey(BASE_DASHBOARD_HISTORY_KEY);
+    const raw = localStorage.getItem(dashboardKey);
     const stored = raw ? JSON.parse(raw) : null;
 
     if (stored) {
       return stored;
     }
 
-    const reportRaw = localStorage.getItem('mediclear_report_history');
+    const reportKey = getScopedStorageKey(BASE_REPORT_HISTORY_KEY);
+    const reportRaw = localStorage.getItem(reportKey);
     const storedReports = reportRaw ? JSON.parse(reportRaw) : [];
 
     return {
@@ -94,7 +107,7 @@ export default function Dashboard() {
       try {
         const res = await getMedicalHistory();
         const mergedHistory = mergeDashboardHistory(res.data || {}, storedHistory);
-        localStorage.setItem(DASHBOARD_HISTORY_KEY, JSON.stringify(mergedHistory));
+        localStorage.setItem(getScopedStorageKey(BASE_DASHBOARD_HISTORY_KEY), JSON.stringify(mergedHistory));
         setHistory(mergedHistory);
       } catch (err) {
         console.error('Dashboard fetch error:', err);

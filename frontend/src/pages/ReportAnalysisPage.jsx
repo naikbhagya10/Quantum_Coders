@@ -18,12 +18,22 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const REPORT_STORAGE_KEY = 'mediclear_report_history';
-const DASHBOARD_HISTORY_KEY = 'mediclear_dashboard_history';
+const BASE_REPORT_STORAGE_KEY = 'mediclear_report_history';
+const BASE_DASHBOARD_HISTORY_KEY = 'mediclear_dashboard_history';
+
+const getScopedStorageKey = (baseKey) => {
+  try {
+    const currentUser = JSON.parse(localStorage.getItem('mediclear_session_user') || '{}');
+    const userIdentifier = currentUser.email || currentUser.id || 'guest';
+    return `${baseKey}_${userIdentifier}`;
+  } catch (error) {
+    return `${baseKey}_guest`;
+  }
+};
 
 const readStoredReports = () => {
   try {
-    const raw = localStorage.getItem(REPORT_STORAGE_KEY);
+    const raw = localStorage.getItem(getScopedStorageKey(BASE_REPORT_STORAGE_KEY));
     return raw ? JSON.parse(raw) : [];
   } catch (error) {
     console.error('Error reading stored reports:', error);
@@ -32,10 +42,13 @@ const readStoredReports = () => {
 };
 
 const writeStoredReports = (reports) => {
-  localStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(reports));
+  const reportKey = getScopedStorageKey(BASE_REPORT_STORAGE_KEY);
+  const dashboardKey = getScopedStorageKey(BASE_DASHBOARD_HISTORY_KEY);
+
+  localStorage.setItem(reportKey, JSON.stringify(reports));
 
   try {
-    const rawDashboardHistory = localStorage.getItem(DASHBOARD_HISTORY_KEY);
+    const rawDashboardHistory = localStorage.getItem(dashboardKey);
     const storedDashboardHistory = rawDashboardHistory ? JSON.parse(rawDashboardHistory) : {
       reports: [],
       symptoms: [],
@@ -49,7 +62,7 @@ const writeStoredReports = (reports) => {
       reports
     };
 
-    localStorage.setItem(DASHBOARD_HISTORY_KEY, JSON.stringify(dashboardHistory));
+    localStorage.setItem(dashboardKey, JSON.stringify(dashboardHistory));
   } catch (error) {
     console.error('Error syncing dashboard report storage:', error);
   }
@@ -71,6 +84,11 @@ const mergeReports = (serverReports = [], localReports = []) => {
     const bTime = new Date(b.uploaded_at || b.created_at || 0).getTime();
     return bTime - aTime;
   });
+};
+
+const looksLikeNonMedicalFilename = (fileName = '') => {
+  const loweredName = fileName.toLowerCase();
+  return /(resume|cv|curriculum|cover letter|portfolio|candidate|job application)/i.test(loweredName);
 };
 
 export default function ReportAnalysisPage() {
@@ -135,7 +153,11 @@ export default function ReportAnalysisPage() {
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+      const nextFile = e.target.files[0];
+      if (looksLikeNonMedicalFilename(nextFile.name)) {
+        addNotification('Please upload a medical report, lab report, or clinical document instead of a resume/CV.', 'warning');
+      }
+      setSelectedFile(nextFile);
     }
   };
 
@@ -143,6 +165,11 @@ export default function ReportAnalysisPage() {
     e.preventDefault();
     if (!selectedFile) {
       addNotification('Please select a PDF or image file first.', 'warning');
+      return;
+    }
+
+    if (looksLikeNonMedicalFilename(selectedFile.name)) {
+      addNotification('Only medical report files can be analyzed here. Please upload a clinical report instead of a resume.', 'warning');
       return;
     }
 
